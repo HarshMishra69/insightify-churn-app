@@ -1,0 +1,372 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insightify - Customer Intelligence Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-link.active { background-color: #4f46e5; color: white; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .gemini-output { white-space: pre-wrap; text-align: left; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .file-upload-label:hover { background-color: #f9fafb; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-gray-800 text-white flex flex-col">
+            <div class="p-4 border-b border-gray-700"><h1 class="text-2xl font-bold">Insightify</h1></div>
+            <nav class="flex-1 p-2 space-y-2">
+                <a href="#" class="sidebar-link active flex items-center px-4 py-2 rounded-md hover:bg-gray-700" data-page="dashboard"><svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>Dashboard</a>
+                <a href="#" class="sidebar-link flex items-center px-4 py-2 rounded-md hover:bg-gray-700" data-page="data-manager"><svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4M4 7l8 5 8-5"></path></svg>Data Manager</a>
+                <a href="#" class="sidebar-link flex items-center px-4 py-2 rounded-md hover:bg-gray-700" data-page="churn-center"><svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6"></path></svg>Churn Center</a>
+                <a href="#" class="sidebar-link flex items-center px-4 py-2 rounded-md hover:bg-gray-700" data-page="recommendations"><svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>AI Recommendations</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-6 md:p-10 overflow-y-auto">
+            <!-- PAGE 1: Dashboard -->
+            <div id="dashboard-page" class="page active">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Business Health Dashboard</h2>
+                <div id="kpi-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-white p-6 rounded-lg shadow-md"><h3 class="text-gray-500 text-sm font-medium">Total Customers</h3><p id="kpi-total-customers" class="text-3xl font-bold text-gray-800 mt-2">N/A</p></div>
+                    <div class="bg-white p-6 rounded-lg shadow-md"><h3 class="text-gray-500 text-sm font-medium">Overall Churn Rate</h3><p id="kpi-churn-rate" class="text-3xl font-bold text-red-500 mt-2">N/A</p></div>
+                    <div class="bg-white p-6 rounded-lg shadow-md"><h3 class="text-gray-500 text-sm font-medium">Total Monthly Revenue</h3><p id="kpi-monthly-revenue" class="text-3xl font-bold text-green-500 mt-2">N/A</p></div>
+                    <div class="bg-white p-6 rounded-lg shadow-md"><h3 class="text-gray-500 text-sm font-medium">Avg. Revenue Per User</h3><p id="kpi-arpu" class="text-3xl font-bold text-gray-800 mt-2">N/A</p></div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="font-bold text-gray-800 mb-4">Churn Rate by Contract Type</h3>
+                        <div class="h-64"><canvas id="contractChurnChart"></canvas></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="font-bold text-gray-800 mb-4">Churn Rate by Internet Service</h3>
+                        <div class="h-64"><canvas id="internetChurnChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+            <!-- PAGE 2: Data Manager -->
+            <div id="data-manager-page" class="page">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Data Manager</h2>
+                <div class="bg-white p-8 rounded-lg shadow-md">
+                    <h3 class="font-bold text-xl text-gray-800 mb-4">Upload Your Customer Data</h3>
+                    <p class="text-gray-600 mb-6">Upload a CSV file with columns like 'Churn', 'MonthlyCharges', 'Contract', and 'InternetService' to automatically power the dashboard.</p>
+                    <label for="csv-upload" class="file-upload-label cursor-pointer border-2 border-dashed border-gray-300 rounded-lg p-12 text-center block"><svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg><p id="upload-text" class="mt-4 text-sm text-gray-600"><span class="font-semibold text-indigo-600">Click to upload</span> or drag and drop</p><p class="text-xs text-gray-500 mt-1">CSV up to 10MB</p></label>
+                    <input type="file" id="csv-upload" class="hidden" accept=".csv"><div id="upload-status" class="mt-4"></div>
+                </div>
+            </div>
+            <!-- PAGE 3: Churn Center -->
+            <div id="churn-center-page" class="page">
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                    <div class="p-8"><h1 class="text-3xl font-bold text-gray-800 text-center">Individual Churn Predictor</h1><p class="text-gray-500 text-center mt-2">Enter a customer's details to get a real-time churn prediction from our AI model.</p></div>
+                    <div class="p-8 bg-gray-50"><form id="churnForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"><div><label for="tenure" class="block text-sm font-medium text-gray-700">Tenure (Months)</label><input type="number" id="tenure" name="tenure" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., 2"></div><div><label for="Contract" class="block text-sm font-medium text-gray-700">Contract</label><select id="Contract" name="Contract" required class="form-select mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"><option>Month-to-month</option><option>One year</option><option>Two year</option></select></div><div><label for="MonthlyCharges" class="block text-sm font-medium text-gray-700">Monthly Charges ($)</label><input type="number" step="0.01" id="MonthlyCharges" name="MonthlyCharges" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., 55.20"></div><div><label for="TotalCharges" class="block text-sm font-medium text-gray-700">Total Charges ($)</label><input type="number" step="0.01" id="TotalCharges" name="TotalCharges" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., 110.40"></div><div><label for="InternetService" class="block text-sm font-medium text-gray-700">Internet Service</label><select id="InternetService" name="InternetService" required class="form-select mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"><option>DSL</option><option>Fiber optic</option><option>No</option></select></div><div><label for="OnlineSecurity" class="block text-sm font-medium text-gray-700">Online Security</label><select id="OnlineSecurity" name="OnlineSecurity" required class="form-select mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"><option>Yes</option><option>No</option><option>No internet service</option></select></div><div><label for="TechSupport" class="block text-sm font-medium text-gray-700">Tech Support</label><select id="TechSupport" name="TechSupport" required class="form-select mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"><option>Yes</option><option>No</option><option>No internet service</option></select></div><input type="hidden" name="gender" value="Female"><input type="hidden" name="SeniorCitizen" value="0"><input type="hidden" name="Partner" value="Yes"><input type="hidden" name="Dependents" value="No"><input type="hidden" name="PhoneService" value="No"><input type="hidden" name="MultipleLines" value="No phone service"><input type="hidden" name="OnlineBackup" value="Yes"><input type="hidden" name="DeviceProtection" value="No"><input type="hidden" name="StreamingTV" value="No"><input type="hidden" name="StreamingMovies" value="No"><input type="hidden" name="PaperlessBilling" value="Yes"><input type="hidden" name="PaymentMethod" value="Electronic check"></form></div>
+                    <div class="p-8 text-center"><button id="predictBtn" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg">Predict Churn</button></div>
+                    <div id="result" class="p-8 border-t border-gray-200" style="display: none;"><div class="flex items-center justify-center"><div id="loader" class="loader" style="display: none;"></div></div><div id="prediction-output" class="text-center"></div><div id="gemini-section" class="mt-6 text-center" style="display: none;"><button id="geminiBtn" class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg">✨ Generate Retention Plan</button><div class="flex items-center justify-center mt-4"><div id="geminiLoader" class="loader" style="display: none;"></div></div><div id="gemini-output" class="mt-4 p-4 bg-gray-100 rounded-lg gemini-output"></div></div></div>
+                </div>
+            </div>
+            <!-- PAGE 4: AI Recommendations -->
+            <div id="recommendations-page" class="page">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">AI Business Consultant</h2>
+                <div class="bg-white p-8 rounded-lg shadow-md">
+                    <h3 class="text-xl font-bold text-gray-800">Generate Strategic Insights</h3>
+                    <p class="text-gray-600 mt-2 mb-6">Click the button below to get AI-powered recommendations and strategic advice based on your business's key metrics.</p>
+                    <button id="generateRecommendationsBtn" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg">Analyze My Business</button>
+                    <div class="flex items-center justify-center mt-6"><div id="recoLoader" class="loader" style="display: none;"></div></div>
+                    <div id="recommendations-output" class="mt-6 p-4 bg-gray-50 rounded-lg gemini-output" style="display: none;"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- GLOBAL STATE ---
+        window.insightifyData = { summary: null, charts: {} };
+        let contractChurnChart, internetChurnChart;
+
+        // --- NAVIGATION ---
+        const sidebarLinks = document.querySelectorAll('.sidebar-link');
+        const pages = document.querySelectorAll('.page');
+        sidebarLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const pageId = link.getAttribute('data-page');
+                sidebarLinks.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                pages.forEach(page => page.classList.toggle('active', page.id === `${pageId}-page`));
+            });
+        });
+
+        // --- CHART INITIALIZATION ---
+        function createCharts() {
+            const contractCtx = document.getElementById('contractChurnChart').getContext('2d');
+            contractChurnChart = new Chart(contractCtx, { type: 'doughnut', data: { labels: [], datasets: [{ data: [], backgroundColor: ['#34D399', '#F87171', '#60A5FA'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } } } });
+            
+            const internetCtx = document.getElementById('internetChurnChart').getContext('2d');
+            internetChurnChart = new Chart(internetCtx, { type: 'bar', data: { labels: [], datasets: [{ label: 'Churn Rate %', data: [], backgroundColor: ['#FBBF24', '#F87171', '#34D399'] }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } } });
+        }
+        createCharts();
+
+        // --- DATA MANAGER ---
+        const fileInput = document.getElementById('csv-upload');
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('upload-text').textContent = `Selected: ${file.name}`;
+                document.getElementById('upload-status').innerHTML = `<div class="flex items-center justify-center"><div class="loader"></div><p class="ml-2">Processing...</p></div>`;
+                Papa.parse(file, { header: true, skipEmptyLines: true, complete: (results) => { 
+                    processData(results.data); 
+                    document.getElementById('upload-status').innerHTML = `<p class="text-green-600 font-semibold">✅ Success! Data processed and dashboard updated.</p>`;
+                }, error: (err) => { document.getElementById('upload-status').innerHTML = `<p class="text-red-600 font-semibold">❌ Error: ${err.message}</p>`; } });
+            }
+        });
+
+        // --- DATA PROCESSING & DASHBOARD UPDATE ---
+        function processData(data) {
+            const totalCustomers = data.length;
+            const churnedCustomers = data.filter(r => r.Churn && r.Churn.toLowerCase() === 'yes');
+            const totalMonthlyRevenue = data.reduce((sum, r) => sum + parseFloat(r.MonthlyCharges || 0), 0);
+            
+            const overallChurnRate = totalCustomers > 0 ? (churnedCustomers.length / totalCustomers) * 100 : 0;
+            const arpu = totalCustomers > 0 ? totalMonthlyRevenue / totalCustomers : 0;
+
+            window.insightifyData.summary = { overallChurnRate: overallChurnRate.toFixed(1), arpu: arpu.toFixed(2) };
+
+            document.getElementById('kpi-total-customers').textContent = totalCustomers;
+            document.getElementById('kpi-churn-rate').textContent = `${overallChurnRate.toFixed(1)}%`;
+            document.getElementById('kpi-monthly-revenue').textContent = `$${totalMonthlyRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('kpi-arpu').textContent = `$${arpu.toFixed(2)}`;
+
+            updateChartData(data);
+        }
+
+        function updateChartData(data) {
+            const contractGroups = groupBy(data, 'Contract');
+            const contractLabels = Object.keys(contractGroups);
+            const contractChurnRates = contractLabels.map(label => {
+                const group = contractGroups[label];
+                const churnCount = group.filter(r => r.Churn && r.Churn.toLowerCase() === 'yes').length;
+                return group.length > 0 ? (churnCount / group.length) * 100 : 0;
+            });
+            contractChurnChart.data.labels = contractLabels;
+            contractChurnChart.data.datasets[0].data = contractChurnRates;
+            contractChurnChart.update();
+            window.insightifyData.charts.contractChurn = { labels: contractLabels, rates: contractChurnRates.map(r => r.toFixed(1)) };
+
+            const internetGroups = groupBy(data, 'InternetService');
+            const internetLabels = Object.keys(internetGroups);
+            const internetChurnRates = internetLabels.map(label => {
+                const group = internetGroups[label];
+                const churnCount = group.filter(r => r.Churn && r.Churn.toLowerCase() === 'yes').length;
+                return group.length > 0 ? (churnCount / group.length) * 100 : 0;
+            });
+            internetChurnChart.data.labels = internetLabels;
+            internetChurnChart.data.datasets[0].data = internetChurnRates;
+            internetChurnChart.update();
+            window.insightifyData.charts.internetChurn = { labels: internetLabels, rates: internetChurnRates.map(r => r.toFixed(1)) };
+        }
+
+        function groupBy(array, key) {
+            return array.reduce((result, currentValue) => {
+                (result[currentValue[key]] = result[currentValue[key]] || []).push(currentValue);
+                return result;
+            }, {});
+        }
+
+        // --- AI RECOMMENDATIONS ---
+        const generateBtn = document.getElementById('generateRecommendationsBtn');
+        generateBtn.addEventListener('click', async () => {
+            if (!window.insightifyData.summary) {
+                document.getElementById('recommendations-output').style.display = 'block';
+                document.getElementById('recommendations-output').textContent = "Please upload customer data on the 'Data Manager' page first.";
+                return;
+            }
+            const recoLoader = document.getElementById('recoLoader');
+            const recoOutput = document.getElementById('recommendations-output');
+            recoLoader.style.display = 'block';
+            recoOutput.style.display = 'none';
+            generateBtn.disabled = true;
+            
+            // =================================================================
+            // IMPORTANT: YOUR API KEY IS PASTED HERE
+            // =================================================================
+            const apiKey = "AIzaSyAnqmHTLYYV3YjuX8Zu7TIDsCMOrgl7wu0"; 
+            // =================================================================
+
+            if (apiKey === "PASTE_YOUR_GEMINI_API_KEY_HERE" || apiKey.length < 30) {
+                recoOutput.textContent = "API Key not found or is invalid. Please get a valid key from Google AI Studio and paste it into the index.html file.";
+                recoLoader.style.display = 'none';
+                recoOutput.style.display = 'block';
+                generateBtn.disabled = false;
+                return;
+            }
+            
+            const { summary, charts } = window.insightifyData;
+            const prompt = `
+You are an expert business strategy consultant analyzing data for a subscription-based company.
+Here are the key metrics from their latest data upload:
+
+- Overall Churn Rate: ${summary.overallChurnRate}%
+- Average Revenue Per User (ARPU): $${summary.arpu}
+- Churn Rate by Contract Type:
+  - ${charts.contractChurn.labels[0]}: ${charts.contractChurn.rates[0]}%
+  - ${charts.contractChurn.labels[1]}: ${charts.contractChurn.rates[1]}%
+  - ${charts.contractChurn.labels[2] || ''}: ${charts.contractChurn.rates[2] || ''}%
+- Churn Rate by Internet Service:
+  - ${charts.internetChurn.labels[0]}: ${charts.internetChurn.rates[0]}%
+  - ${charts.internetChurn.labels[1]}: ${charts.internetChurn.rates[1]}%
+  - ${charts.internetChurn.labels[2] || ''}: ${charts.internetChurn.rates[2] || ''}%
+
+Based *only* on this data, provide a concise and actionable business analysis. Your analysis should have three sections:
+1.  **Top Priority Insight:** Identify the single most critical issue or opportunity revealed by the data. Explain why it's so important.
+2.  **Strategic Recommendations:** Provide two distinct, actionable strategies to address the top priority. For each strategy, explain the "What" (the action to take) and the "Why" (why it will work based on the data).
+3.  **Untapped Opportunity:** Identify one secondary opportunity in the data that the business could explore for future growth.
+
+Format the response clearly with bold headings for each section. Be direct and professional.`;
+
+            try {
+                let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = { contents: chatHistory };
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.error?.message || `API Error: ${response.statusText}`);
+                }
+
+                if (result.candidates?.[0]?.content?.parts?.[0]) { 
+                    recoOutput.textContent = result.candidates[0].content.parts[0].text; 
+                } else { 
+                    throw new Error("Invalid response structure from API."); 
+                }
+            } catch (error) { 
+                console.error("Gemini API Error:", error); 
+                recoOutput.textContent = `Sorry, an error occurred while generating insights. Please check the console for details. Error: ${error.message}`; 
+            } finally { 
+                recoLoader.style.display = 'none'; 
+                recoOutput.style.display = 'block'; 
+                generateBtn.disabled = false; 
+            }
+        });
+
+        // --- CHURN CENTER ---
+        const form = document.getElementById('churnForm');
+        const predictBtn = document.getElementById('predictBtn');
+        predictBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (!form.checkValidity()) { 
+                const messageBox = document.createElement('div');
+                messageBox.textContent = 'Please fill out all required fields.';
+                messageBox.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; z-index: 1000;';
+                document.body.appendChild(messageBox);
+                setTimeout(() => messageBox.remove(), 3000);
+                return; 
+            }
+            const resultDiv = document.getElementById('result');
+            const loader = document.getElementById('loader');
+            const predictionOutput = document.getElementById('prediction-output');
+            resultDiv.style.display = 'block'; loader.style.display = 'block'; predictionOutput.innerHTML = ''; document.getElementById('gemini-section').style.display = 'none';
+            
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            Object.keys(data).forEach(key => {
+                if (!isNaN(data[key]) && data[key] !== '') data[key] = Number(data[key]);
+            });
+
+            try {
+                const response = await fetch('/predict', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+                const result = await response.json();
+                loader.style.display = 'none';
+                if (result.prediction === 1) { 
+                    predictionOutput.innerHTML = `<h2 class="text-2xl font-bold text-red-600">Prediction: Churn</h2><p class="text-gray-600 mt-2">This customer has a ${result.probability}% probability of churning.</p>`; 
+                    document.getElementById('gemini-section').style.display = 'block'; 
+                } else { 
+                    predictionOutput.innerHTML = `<h2 class="text-2xl font-bold text-green-600">Prediction: No Churn</h2><p class="text-gray-600 mt-2">This customer has a low probability of churning (${result.probability}%).</p>`; 
+                }
+            } catch (error) { 
+                loader.style.display = 'none'; 
+                predictionOutput.innerHTML = `<p class="text-red-600 font-semibold">Error: ${error.message}</p>`; 
+                console.error("Prediction Error:", error); 
+            }
+        });
+
+        // --- RETENTION PLAN GENERATOR ---
+        const geminiBtn = document.getElementById('geminiBtn');
+        geminiBtn.addEventListener('click', async () => {
+            const geminiLoader = document.getElementById('geminiLoader');
+            const geminiOutput = document.getElementById('gemini-output');
+            geminiLoader.style.display = 'block'; 
+            geminiOutput.innerHTML = ''; 
+            geminiBtn.disabled = true; 
+
+            // =================================================================
+            // IMPORTANT: YOUR API KEY IS PASTED HERE
+            // =================================================================
+            const apiKey = "AIzaSyAnqmHTLYYV3YjuX8Zu7TIDsCMOrgl7wu0"; 
+            // =================================================================
+            
+            if (apiKey === "PASTE_YOUR_GEMINI_API_KEY_HERE" || apiKey.length < 30) {
+                geminiOutput.textContent = "API Key not found or is invalid. Please get a valid key from Google AI Studio and paste it into the index.html file.";
+                geminiLoader.style.display = 'none';
+                geminiBtn.disabled = false;
+                return;
+            }
+
+            const formData = new FormData(form); 
+            const customerProfile = { 
+                tenure: formData.get('tenure'), 
+                contract: formData.get('Contract'), 
+                monthlyCharges: formData.get('MonthlyCharges'), 
+                internetService: formData.get('InternetService'), 
+                techSupport: formData.get('TechSupport'), 
+            }; 
+            const prompt = `You are an expert customer retention strategist for a telecommunications company. A customer with the following profile has been identified as a high churn risk:
+
+- Tenure: ${customerProfile.tenure} months
+- Contract Type: ${customerProfile.contract}
+- Internet Service: ${customerProfile.internetService}
+- Has Tech Support: ${customerProfile.techSupport}
+- Monthly Charges: $${customerProfile.monthlyCharges}
+
+Based *only* on this information, provide a concise, actionable, and personalized retention plan. The plan should include 2 distinct strategies. For each strategy, provide a brief "Why it works" explanation. Format the output clearly with bold headings for each strategy.`; 
+
+            try { 
+                let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = { contents: chatHistory };
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
+                
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.error?.message || `API Error: ${response.statusText}`);
+                }
+
+                if (result.candidates?.[0]?.content?.parts?.[0]) { 
+                    geminiOutput.textContent = result.candidates[0].content.parts[0].text; 
+                } else { 
+                    throw new Error("Invalid response structure from API."); 
+                } 
+            } catch (error) { 
+                console.error("Gemini API Error:", error); 
+                geminiOutput.textContent = `Sorry, an error occurred while generating the retention plan. Error: ${error.message}`; 
+            } finally { 
+                geminiLoader.style.display = 'none'; 
+                geminiBtn.disabled = false; 
+            } 
+        });
+    });
+    </script>
+</body>
+</html>
