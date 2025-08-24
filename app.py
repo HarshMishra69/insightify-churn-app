@@ -1,20 +1,18 @@
-# app.py (Final version for deployment)
+# app.py
 from flask import Flask, request, jsonify, render_template
 import pickle
 import pandas as pd
-import os # Import the os module
+import os
 
 app = Flask(__name__)
 
-# Load the model
+# Load the churn model
 try:
     with open('churn_model.pkl', 'rb') as model_file:
         model = pickle.load(model_file)
-    print("Model loaded successfully!")
+    print("Churn model loaded successfully!")
 except FileNotFoundError:
     print("[ERROR] 'churn_model.pkl' not found. Please run model_training.py first.")
-    # In a real production app, you might want to handle this more gracefully
-    # For this project, we'll assume the model file exists.
     model = None
 
 # Get the API Key from the environment variable set in Render
@@ -24,7 +22,6 @@ GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 def home():
     return render_template('index.html')
 
-# New route to securely provide the API key to the frontend
 @app.route('/config')
 def config():
     return jsonify({'apiKey': GEMINI_API_KEY})
@@ -37,12 +34,8 @@ def predict():
     try:
         data = request.get_json()
         input_df = pd.DataFrame([data])
-        
-        # The pipeline handles all preprocessing
         prediction = model.predict(input_df)
         prediction_proba = model.predict_proba(input_df)
-        
-        # Extract the results
         result = int(prediction[0])
         probability_churn = float(prediction_proba[0][1])
         
